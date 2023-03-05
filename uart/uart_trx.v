@@ -1,6 +1,6 @@
 module uart_tx_8n1 (
     input wire clk,        // input clock
-    input [7:0] tdata,     // outgoing byte
+    input [7:0] data,     // outgoing byte
     input wire enable,   // send data
     output reg busy = 1'b0,     // sending in progress?
     output wire txd         // tx wire
@@ -40,7 +40,7 @@ module uart_tx_8n1 (
         end
 
         if (state == STATE_START) begin
-            buf_tx <= tdata;
+            buf_tx <= data;
             busy <= 1'b1;
             bits_sent <= 8'b0;
             txd <= 1'b0; //send start bit (low)
@@ -80,24 +80,16 @@ module uart_tx_8n1 (
 endmodule
 
 
-/*currently this module has an issue*/
+/*currently this module has an issue with skipping some bytes*/
+//will fix later
 module uart_rx_8n1 #(parameter BAUD_RATE = 19200, CLOCK_FREQ = 12000000)
     (
-    clk,        // input clock
-    rxbyte,     // incoming byte
-    recvdata,   // trigger rx
-    rxdone,     // incoming byte recieved
-    rx         // rx wire
+    input wire clk, 
+    output [7:0] data,
+    input wire enable,
+    output reg ready, //data has arrived
+    input wire rxd
     );
-
-    /* Inputs */
-    input clk;
-    input rx;
-    input recvdata;
-
-    /* Outputs */
-    output rxdone;
-    output reg[7:0] rxbyte;
 
     /* Parameters */
     parameter STATE_IDLE=8'd0;
@@ -107,7 +99,7 @@ module uart_rx_8n1 #(parameter BAUD_RATE = 19200, CLOCK_FREQ = 12000000)
     /* State variables */
     reg[7:0] state=8'b0;
     reg[7:0] bits_recv=8'b0;
-    reg rxdone=1'b0;
+    reg ready=1'b0;
 
     reg rst = 0;;
     reg baud_clock;
@@ -118,26 +110,27 @@ module uart_rx_8n1 #(parameter BAUD_RATE = 19200, CLOCK_FREQ = 12000000)
         .enable (enable_baud),
         .baud_clock (baud_clock),
     );
+    
 
 
     /* UART state machine */
     always @ (posedge baud_clock) begin
 
         // recv start bit (low)
-        if (state == STATE_IDLE && rx == 1'b0 && recvdata == 1) begin
+        if (state == STATE_IDLE && rxd == 1'b0 && enable == 1) begin
             state <= STATE_RXING;
-            rxdone <= 1'b0;
+            ready <= 1'b0;
         end
-        else if(state == STATE_IDLE && rx == 1'b1) begin
+        else if(state == STATE_IDLE && rxd == 1'b1) begin
             state <= STATE_IDLE;
-            rxdone <= 1'b0;
+            ready <= 1'b0;
         end
         // clock data recv
         if (state == STATE_RXING && bits_recv < 8'd8) begin
-            rxbyte[bits_recv[2:0]] <= rx;
-            //$display("rxbit: %b",rxbit);
+            data[bits_recv[2:0]] <= rxd;
+            //$display("rxd: %b",rxd);
             bits_recv <= bits_recv + 1;
-            //$display("rxbyte: %b",rxbyte);
+            //$display("data: %b",data);
             if (bits_recv == 7) begin
                 state <= STATE_DONE;
             end
@@ -148,13 +141,13 @@ module uart_rx_8n1 #(parameter BAUD_RATE = 19200, CLOCK_FREQ = 12000000)
             
             bits_recv <= 8'b0;
             // recv stop bit (high)
-            if (rxbit == 1'b1) begin
-                //rxdone <= 1'b1;
+            if (rxd == 1'b1) begin
+                //ready <= 1'b1;
             end
 
             //no error checking for now
 
-            rxdone <= 1'b1;
+            ready <= 1'b1;
             state <= STATE_IDLE;
 
   
@@ -179,7 +172,7 @@ module uart_rx_8n1 #(parameter BAUD_RATE = 19200, CLOCK_FREQ = 12000000)
             start_ctr <= 5;
             enable_baud <= 0;
 
-            if(rx == 1'b0) begin
+            if(rxd == 1'b0) begin
                 oversampler_state <= STATE_CHECKING;
             end
         end
@@ -187,7 +180,7 @@ module uart_rx_8n1 #(parameter BAUD_RATE = 19200, CLOCK_FREQ = 12000000)
         //make sure wire is low for more than a few cycles
         if (oversampler_state == STATE_CHECKING) begin
             sync_ctr <= sync_ctr + 1;
-            if (rx == 1'b1) begin
+            if (rxd == 1'b1) begin
                 oversampler_state <= STATE_CHECK;
             end
 
@@ -210,7 +203,7 @@ module uart_rx_8n1 #(parameter BAUD_RATE = 19200, CLOCK_FREQ = 12000000)
         if(oversampler_state == STATE_WAIT_TILL_RXDONE) begin
             rst <= 0;
             //after byte is recieved, disable baudclock until next edge
-            if(rxdone == 1) begin
+            if(ready == 1) begin
                 enable_baud <= 0;
                 oversampler_state <= STATE_CHECK;
                  

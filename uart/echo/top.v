@@ -24,7 +24,6 @@ module top (
     reg [7:0] uart_txbyte;
     reg [7:0] uart_rxbyte;
     reg uart_send = 1'b0;
-    reg uart_recv = 1'b1;
     reg clock_ctr = 0;
     reg clock_ctr_old = 0;
     wire busy;
@@ -33,33 +32,20 @@ module top (
     /* LED register */
     reg ledval = 0;
 
-    /* UART transmitter module designed for
-       8 bits, no parity, 1 stop bit. 
-    */
     uart_tx_8n1 transmitter (
-        // 9600 baud rate clock
         .clk (hwclk),
-        // byte to be transmitted
-        .tdata (uart_txbyte),
-        // trigger a UART transmit on baud clock
+        .data (uart_txbyte),
         .enable (uart_send),
-        // input: tx is finished
         .busy (busy),
-        // output UART tx pin
         .txd (ftdi_tx),
     );
 
     uart_rx_8n1 reciever (
-        // 9600 baud rate clock
         .clk (hwclk),
-        // byte to be recieved
-        .rxbyte (uart_rxbyte),
-        // trigger a UART recieve
-        .recvdata (uart_recv),
-        // input: rx is finished
-        .rxdone (uart_rxed),
-        // input UART rx pin
-        .rx (ftdi_rx),
+        .data (uart_rxbyte),
+        .enable (1),
+        .ready (uart_rxed),
+        .rxd (ftdi_rx),
     );
 
     /* Wiring */
