@@ -1,64 +1,54 @@
 module uart_tx_8n1 (
-    clk,        // input clock
-    txbyte,     // outgoing byte
-    senddata,   // trigger tx
-    busy,     // outgoing byte sent
-    tx         // tx wire
+    input wire clk,        // input clock
+    input [7:0] tdata,     // outgoing byte
+    input wire enable,   // send data
+    output reg busy = 1'b0,     // sending in progress?
+    output wire txd         // tx wire
     );
 
-    /* Inputs */
-    input clk;
-    input[7:0] txbyte;
-    input senddata;
-
-    /* Outputs */
-    output busy;
-    output tx;
-
     /* Parameters */
-    parameter STATE_IDLE=8'd0;
-    parameter STATE_STARTTX=8'd1;
-    parameter STATE_TXING=8'd2;
-
-    /* State variables */
-    reg[7:0] state = 8'b0;
-    reg[7:0] buf_tx;
-    reg[7:0] bits_sent = 8'b0;
-    reg txbit=1'b1;
-    reg busy=1'b0;
-
-    /* Wiring */
-    assign tx=txbit;
+    parameter STATE_IDLE = 3'd0;
+    parameter STATE_START = 3'd1;
+    parameter STATE_DATA = 3'd2;
+    parameter STATE_STOP = 3'd3;
 
 
-    reg rst = 0;;
-    reg baud_clock;
+    reg[2:0] state = 3'b0;
+    reg[7:0] buf_tx = 0;
+    reg[3:0] bits_sent = 4'b0;
+    reg enable_latch = 1'b0;
+
+
+    wire baud_clock;
     baud_clock baud_clk (
         .clk (clk),
-        .rst (rst),
+        .rst (0),
         .enable (1),
         .baud_clock (baud_clock),
     );
 
-    reg senddata_latch = 0;
     /* UART state machine */
     always @ (posedge baud_clock) begin
-        // start sending?
-        if (senddata_latch == 1 && state == STATE_IDLE) begin
-            buf_tx <= txbyte;
-            busy <= 1'b1;
-            bits_sent <= 8'b0;
-            txbit <= 1'b0; //send start bit (low)
-            state <= STATE_TXING;
-        end else if (state == STATE_IDLE) begin
+
+        if (state == STATE_IDLE) begin
             // idle at high
-            txbit <= 1'b1;
+            txd <= 1'b1;
             busy <= 1'b0;
+            if(enable_latch == 1) begin
+                state <= STATE_START;
+            end
         end
 
-        // clock data out
-        if (state == STATE_TXING && bits_sent < 8'd8) begin
-            txbit <= buf_tx[bits_sent[2:0]];
+        if (state == STATE_START) begin
+            buf_tx <= tdata;
+            busy <= 1'b1;
+            bits_sent <= 8'b0;
+            txd <= 1'b0; //send start bit (low)
+            state <= STATE_DATA;
+        end
+
+        if (state == STATE_DATA && bits_sent < 8'd8) begin
+            txd <= buf_tx[bits_sent[2:0]];
             bits_sent <= bits_sent + 1;
             if (bits_sent == 7) begin
                 state <= STATE_IDLE;
@@ -67,9 +57,9 @@ module uart_tx_8n1 (
         end 
 
         /*
-        else if (state == STATE_TXING) begin
+        else if (state == STATE_DATA) begin
             // send stop bit (high)
-            txbit <= 1'b1;
+            txd <= 1'b1;
             bits_sent <= 8'b0;
             state <= STATE_IDLE;
             busy <= 1'b1;
@@ -78,11 +68,11 @@ module uart_tx_8n1 (
     end
 
     always @(posedge clk) begin
-        if(senddata == 1 && busy == 0) begin
-            senddata_latch <= 1;
+        if(enable == 1 && busy == 0) begin
+            enable_latch <= 1;
         end
-        else if (busy == 1) begin
-            senddata_latch <= 0;
+        else if (state != STATE_IDLE) begin
+            enable_latch <= 0;
         end
     end
     

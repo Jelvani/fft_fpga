@@ -40,13 +40,13 @@ module top (
         // 9600 baud rate clock
         .clk (hwclk),
         // byte to be transmitted
-        .txbyte (uart_txbyte),
+        .tdata (uart_txbyte),
         // trigger a UART transmit on baud clock
-        .senddata (uart_send),
+        .enable (uart_send),
         // input: tx is finished
         .busy (busy),
         // output UART tx pin
-        .tx (ftdi_tx),
+        .txd (ftdi_tx),
     );
 
     uart_rx_8n1 reciever (
