@@ -6,83 +6,74 @@ Layer 3 (network): This code (send a packet consisting of multiple bytes)
 
 
 
-module packet_sender #(parameter PACKET_SIZE = 32)
+module packet_sender #(parameter integer PACKET_SIZE = 10)
     (
-        clk,
-        buff,
-        start,
-        ftdi_tx,
-        busy,
+        input wire clk,
+        input [15:0] packet,
+        input wire enable,
+        output wire txd,
+        output reg busy = 0
     );
 
-    input clk;
-    input reg[PACKET_SIZE-1:0] buff;
-    input start; //trigger send packet
-    output ftdi_tx;
-    output reg busy = 0;
 
-    reg [7:0] txbyte;
-    reg sendflag = 1'b0;
-    reg startlatch = 0;
-    wire txbusy;
+    reg [15:0] txbyte = 0;
+    reg tx_en = 1'b0;
+    reg enable_latch = 0;
+    reg tx_busy;
 
     uart_tx_8n1 transmitter (
         .clk (clk),
-        .txbyte (txbyte),
-        .senddata (sendflag),
-        .txbusy (txbusy),
-        .tx (ftdi_tx),
+        .data (txbyte),
+        .enable (tx_en),
+        .busy (tx_busy),
+        .txd (txd),
     );
 
-    reg [15:0] currrent_byte = 0;
+    reg [15:0] octet = 0;
+
     always @ (posedge clk) begin
 
-        if (startlatch == 1) begin
-            if(txbusy == 0) begin
-            
-                if(currrent_byte < PACKET_SIZE) begin
-                    txbyte <= buff[currrent_byte];
-                    currrent_byte <= currrent_byte + 1;
-                    sendflag <= 1;
+
+        if (enable_latch == 1) begin //begin sending
+            if(tx_busy == 0) begin//tx line is free, send a byte
+    
+                if(octet < 2) begin
+                    txbyte <= packet[octet*8+:8];
+                    octet <= octet + 1;
+                    tx_en <= 1;
                 end
-                //done transmitting packet
-                else begin
-                    busy <= 0;
-                    startlatch <= 0;
-                    currrent_byte <= 0;
+
+                    enable_latch <= 0;
+                    tx_en <= 0;
                 end
-            //transmit in progress, disable send flag
-            end else begin
-                sendflag <= 0;
+
+            end else begin //tx line is busy, wait
+                tx_en <= 0;
             end
         end
-        
-        if(start == 1) begin
-            startlatch <= 1;
+
+        else if(enable == 1) begin
+            enable_latch <= 1;
             busy <= 1;
         end
 
     end
 
-endmodule
+
+    always @ (negedge tx_busy) begin //tx line is free again 
 
 
-module packet_reciever #(parameter PACKET_SIZE = 32)
-    (
-        clk,
-        buff,
-        busy,
-    );
+            if(octet < 2) begin
+                txbyte <= packet[octet*8+:8];
+                octet <= octet + 1;
+                tx_en <= 1;
+            end
+            else begin
+                busy <= 0;
+                octet <= 0;
+            end
+        
 
-
-    input clk;
-    output reg[PACKET_SIZE-1:0] buff;
-    output reg busy = 0;
-
-
-     always @ (posedge clk) begin
-        $display("buff size: ", $size(buff));
-
-     end
+    end
 
 endmodule

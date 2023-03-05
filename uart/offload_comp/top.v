@@ -1,23 +1,34 @@
-/* Top level module UART echo demo */
 module top (
-    // input hardware clock (12 MHz)
-    hwclk, 
-    // all LEDs
-    led1,
-    // UART lines
-    ftdi_tx,
-    ftdi_rx,
+    input wire hwclk, 
+    output wire led1,
+    output wire ftdi_tx,
+    input wire ftdi_rx,
     );
 
-    /* Clock input */
-    input hwclk;
 
-    /* LED outputs */
-    output led1;
+    reg [15:0] data = "ab";
+    reg enb = 1'b0;
+    reg busy;
+    packet_sender #( .PACKET_SIZE(2)) transmitter (
+        .clk(hwclk),
+        .packet(data),
+        .enable(enb),
+        .txd(ftdi_tx),
+        .busy(busy)
+    );
 
-    /* FTDI I/O */
-    output ftdi_tx;
-    input ftdi_rx;
+    reg [31:0] ctr = 0;
+    always @ (posedge hwclk) begin
+        if (ctr > 12000000-5 && ctr < 12000000 && busy == 0) begin
+            enb <= 1;
+            ctr <= 0;
+            led1 <= ~led1;
+        end
+        else begin
+            ctr <= ctr + 1;
+            enb <= 0;
+        end
+    end
 
 
 endmodule

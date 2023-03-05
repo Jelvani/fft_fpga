@@ -1,13 +1,13 @@
 # Project setup
-PROJ      = uart
+PROJ      = packet_proc
 BUILD     = ./build
 DEVICE    = 8k
 FOOTPRINT = ct256
 
 
 # Files
-FILES = top.v ../uart_trx.v cu.v packet_processor.v
-TB_FILES = top_tb.v ../uart_trx.v cu.v packet_processor.v
+FILES = top.v ../uart_trx.v packet_processor.v ../baud_clock.v
+TB_FILES = top_tb.v ../uart_trx.v packet_processor.v ../baud_clock.v
 
 .PHONY: all clean burn
 
@@ -24,7 +24,7 @@ $(BUILD)/$(PROJ).bin: $(FILES) Makefile
 	icepack $(BUILD)/$(PROJ).asc $(BUILD)/$(PROJ).bin
 
 sim: $(FILES)
-	verilator --top top_bench --cc --binary $(TB_FILES)
+	verilator --cc --binary $(TB_FILES)
 
 burn:   $(BUILD)/$(PROJ).bin
 	iceprog $<
