@@ -1,0 +1,7 @@
+*.json
+*.rpt
+*.bin
+*.asc
+fft-core/
+build/
+obj_dir/
