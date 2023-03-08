@@ -1,7 +1,7 @@
 module uart_tx_8n1 (
     input wire clk,        // input clock
     input [7:0] data,     // outgoing byte
-    input wire enable,   // send data
+    input wire enable,   // begin sending data
     output reg busy = 1'b0,     // sending in progress?
     output wire txd         // tx wire
     );
@@ -12,6 +12,7 @@ module uart_tx_8n1 (
     parameter STATE_DATA = 3'd2;
     parameter STATE_STOP = 3'd3;
 
+    reg [3:0] state_status = 4'b0; 
 
     reg[2:0] state = 3'b0;
     reg[7:0] buf_tx = 0;
@@ -33,46 +34,55 @@ module uart_tx_8n1 (
         if (state == STATE_IDLE) begin
             // idle at high
             txd <= 1'b1;
-            busy <= 1'b0;
-            if(enable_latch == 1) begin
-                state <= STATE_START;
-            end
+            bits_sent <= 8'b0;
+            state_status <= 4'b0;
         end
 
-        if (state == STATE_START) begin
+        else if (state == STATE_START) begin
             buf_tx <= data;
-            busy <= 1'b1;
             bits_sent <= 8'b0;
             txd <= 1'b0; //send start bit (low)
-            state <= STATE_DATA;
+            state_status[STATE_STOP] <= 1'b0;
+            state_status[STATE_START] <= 1'b1;
         end
 
-        if (state == STATE_DATA && bits_sent < 8'd8) begin
-            txd <= buf_tx[bits_sent[2:0]];
+        else if (state == STATE_DATA) begin
+            txd <= buf_tx[bits_sent];
             bits_sent <= bits_sent + 1;
             if (bits_sent == 7) begin
-                state <= STATE_IDLE;
-                busy <= 1'b0;
+                state_status[STATE_START] <= 1'b0;
+                state_status[STATE_DATA] <= 1'b1;
             end
         end 
 
-        /*
-        else if (state == STATE_DATA) begin
+        else if (state == STATE_STOP) begin
             // send stop bit (high)
             txd <= 1'b1;
             bits_sent <= 8'b0;
-            state <= STATE_IDLE;
-            busy <= 1'b1;
+            state_status[STATE_DATA] <= 1'b0;
+            state_status[STATE_STOP] <= 1'b1;
         end
-        */
     end
 
+    reg reset = 1'b0;
     always @(posedge clk) begin
-        if(enable == 1 && busy == 0) begin
-            enable_latch <= 1;
+
+        if(state == STATE_IDLE) begin
+            if(enable == 1'b1)begin
+                state <= STATE_START;
+                busy <= 1'b1;
+            end
         end
-        else if (state != STATE_IDLE) begin
-            enable_latch <= 0;
+        else if(state_status[STATE_START] == 1'b1) begin
+            state <= STATE_DATA;
+        end
+        else if(state_status[STATE_DATA] == 1'b1) begin
+            state <= STATE_STOP;
+        end
+        else if(state_status[STATE_STOP] == 1'b1 && state!=STATE_START)begin
+            //make sure this does not get trigger from STATE_IDLE->STATE_START
+            state <= STATE_IDLE;
+            busy<= 1'b0;
         end
     end
     
