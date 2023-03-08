@@ -6,17 +6,17 @@ Layer 3 (network): This code (send a packet consisting of multiple bytes)
 
 
 
-module packet_sender #(parameter integer PACKET_SIZE = 10)
+module packet_sender #(parameter PACKET_SIZE = 16'd2)
     (
         input wire clk,
-        input [15:0] packet,
+        input [PACKET_SIZE*8-1:0] packet,
         input wire enable,
         output wire txd,
         output reg busy = 0
     );
 
 
-    reg [15:0] txbyte = 0;
+    reg [7:0] txbyte = 0;
     reg tx_en = 1'b0;
     reg enable_latch = 0;
     reg tx_busy;
@@ -26,10 +26,10 @@ module packet_sender #(parameter integer PACKET_SIZE = 10)
         .data (txbyte),
         .enable (tx_en),
         .busy (tx_busy),
-        .txd (txd),
+        .txd (txd)
     );
 
-    reg [15:0] octet = 0;
+    reg [15:0] octet = 16'd0;
 
     always @ (posedge clk) begin
 
@@ -37,42 +37,28 @@ module packet_sender #(parameter integer PACKET_SIZE = 10)
         if (enable_latch == 1) begin //begin sending
             if(tx_busy == 0) begin//tx line is free, send a byte
     
-                if(octet < 2) begin
+                if(octet != PACKET_SIZE+1) begin
                     txbyte <= packet[octet*8+:8];
-                    octet <= octet + 1;
+                    $write("%c",packet[octet*8+:8]);
+                    octet <= octet + 16'd1;
                     tx_en <= 1;
-                end
-
+                end else begin//done sending
                     enable_latch <= 0;
                     tx_en <= 0;
+                    busy <= 0;
+                    octet <= 16'd0;
+                    $display(" done!");
                 end
-
             end else begin //tx line is busy, wait
                 tx_en <= 0;
             end
         end
 
-        else if(enable == 1) begin
+        else if(enable == 1 && busy == 0) begin
             enable_latch <= 1;
             busy <= 1;
+            octet <= 16'd0;
         end
-
-    end
-
-
-    always @ (negedge tx_busy) begin //tx line is free again 
-
-
-            if(octet < 2) begin
-                txbyte <= packet[octet*8+:8];
-                octet <= octet + 1;
-                tx_en <= 1;
-            end
-            else begin
-                busy <= 0;
-                octet <= 0;
-            end
-        
 
     end
 

@@ -6,10 +6,10 @@ module top (
     );
 
 
-    reg [15:0] data = "ab";
+    reg [8*9-1:0] data = "123456789";
     reg enb = 1'b0;
     reg busy;
-    packet_sender #( .PACKET_SIZE(2)) transmitter (
+    packet_sender #( .PACKET_SIZE(16'd9)) transmitter (
         .clk(hwclk),
         .packet(data),
         .enable(enb),
@@ -18,8 +18,9 @@ module top (
     );
 
     reg [31:0] ctr = 0;
+    
     always @ (posedge hwclk) begin
-        if (ctr > 12000000-5 && ctr < 12000000 && busy == 0) begin
+        if (ctr == 12000000 && busy == 0) begin
             enb <= 1;
             ctr <= 0;
             led1 <= ~led1;
