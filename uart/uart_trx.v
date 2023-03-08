@@ -1,3 +1,5 @@
+/* verilator lint_off MULTITOP */
+
 module uart_tx_8n1 (
     input wire clk,        // input clock
     input [7:0] data,     // outgoing byte
@@ -7,16 +9,16 @@ module uart_tx_8n1 (
     );
 
     /* Parameters */
-    parameter STATE_IDLE = 3'd0;
-    parameter STATE_START = 3'd1;
-    parameter STATE_DATA = 3'd2;
-    parameter STATE_STOP = 3'd3;
+    parameter STATE_IDLE = 2'd0;
+    parameter STATE_START = 2'd1;
+    parameter STATE_DATA = 2'd2;
+    parameter STATE_STOP = 2'd3;
 
     reg [3:0] state_status = 4'b0; 
 
-    reg[2:0] state = 3'b0;
+    reg[1:0] state = 2'b0;
     reg[7:0] buf_tx = 0;
-    reg[3:0] bits_sent = 4'b0;
+    reg[2:0] bits_sent = 3'b0;
     reg enable_latch = 1'b0;
 
 
@@ -34,13 +36,13 @@ module uart_tx_8n1 (
         if (state == STATE_IDLE) begin
             // idle at high
             txd <= 1'b1;
-            bits_sent <= 8'b0;
+            bits_sent <= 3'b0;
             state_status <= 4'b0;
         end
 
         else if (state == STATE_START) begin
             buf_tx <= data;
-            bits_sent <= 8'b0;
+            bits_sent <= 3'b0;
             txd <= 1'b0; //send start bit (low)
             state_status[STATE_STOP] <= 1'b0;
             state_status[STATE_START] <= 1'b1;
@@ -58,7 +60,7 @@ module uart_tx_8n1 (
         else if (state == STATE_STOP) begin
             // send stop bit (high)
             txd <= 1'b1;
-            bits_sent <= 8'b0;
+            bits_sent <= 3'b0;
             state_status[STATE_DATA] <= 1'b0;
             state_status[STATE_STOP] <= 1'b1;
         end
