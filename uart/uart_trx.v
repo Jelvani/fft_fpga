@@ -98,9 +98,9 @@ endmodule
 module uart_rx_8n1 #(parameter BAUD_RATE = 19200, CLOCK_FREQ = 12000000)
     (
     input wire clk, 
-    output reg [7:0] data,
+    output reg [7:0] data = 8'b0,
     input wire enable,
-    output reg ready = 1'b0, //data has arrived
+    output reg ready = 1'b0, //on posedge, data has arrived
     input wire rxd
     );
 
@@ -112,6 +112,7 @@ module uart_rx_8n1 #(parameter BAUD_RATE = 19200, CLOCK_FREQ = 12000000)
     /* State variables */
     reg[7:0] state=8'b0;
     reg[7:0] bits_recv=8'b0;
+    reg [3:0] state_status = 4'b0; 
 
     reg rst = 0;;
     reg baud_clock;
@@ -131,11 +132,11 @@ module uart_rx_8n1 #(parameter BAUD_RATE = 19200, CLOCK_FREQ = 12000000)
         // recv start bit (low)
         if (state == STATE_IDLE && rxd == 1'b0 && enable == 1) begin
             state <= STATE_RXING;
-            ready <= 1'b0;
+            ready_latch <= 1'b0;
         end
         else if(state == STATE_IDLE && rxd == 1'b1) begin
             state <= STATE_IDLE;
-            ready <= 1'b0;
+            ready_latch <= 1'b0;
         end
         // clock data recv
         if (state == STATE_RXING && bits_recv < 8'd8) begin
@@ -149,8 +150,7 @@ module uart_rx_8n1 #(parameter BAUD_RATE = 19200, CLOCK_FREQ = 12000000)
             
         end 
         
-        if (state == STATE_DONE) begin
-            
+        if (state == STATE_DONE) begin 
             bits_recv <= 8'b0;
             // recv stop bit (high)
             if (rxd == 1'b1) begin
@@ -159,13 +159,30 @@ module uart_rx_8n1 #(parameter BAUD_RATE = 19200, CLOCK_FREQ = 12000000)
 
             //no error checking for now
 
-            ready <= 1'b1;
+            ready_latch <= 1'b1;
             state <= STATE_IDLE;
+        end
+    end
 
-  
+    reg ready_latch = 1'b0;
+    reg reset_flag = 1'b0;
+
+    always @(posedge clk) begin
+        if(ready_latch == 1'b1) begin
+            if(reset_flag == 1'b0) begin
+                ready <= 1'b1;
+                reset_flag <= 1'b1;
+            end
         end
 
+        if(reset_flag == 1'b1) begin
+            ready <= 1'b0;
+            if(ready_latch == 1'b0) begin
+                reset_flag <= 1'b0;
+            end
+        end
     end
+
 
     reg [3:0] sync_ctr = 0;
     reg [31:0] start_ctr = 0;
