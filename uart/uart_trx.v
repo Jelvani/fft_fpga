@@ -70,7 +70,8 @@ module uart_tx_8n1 (
     always @(posedge clk) begin
 
         if(state == STATE_IDLE) begin
-            if(enable == 1'b1)begin
+            if(enable == 1'b1 && busy == 1'b0)begin
+                //$display("uart_tx_8n1: %c",data);
                 state <= STATE_START;
                 busy <= 1'b1;
             end
