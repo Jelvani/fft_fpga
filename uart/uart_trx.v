@@ -25,7 +25,7 @@ module uart_tx_8n1 (
         .clk (clk),
         .rst (0),
         .enable (1),
-        .baud_clock (baud_clock),
+        .baud_clock (baud_clock)
     );
 
     /* UART state machine */
@@ -95,9 +95,9 @@ endmodule
 module uart_rx_8n1 #(parameter BAUD_RATE = 19200, CLOCK_FREQ = 12000000)
     (
     input wire clk, 
-    output [7:0] data,
+    output reg [7:0] data,
     input wire enable,
-    output reg ready, //data has arrived
+    output reg ready = 1'b0, //data has arrived
     input wire rxd
     );
 
@@ -109,7 +109,6 @@ module uart_rx_8n1 #(parameter BAUD_RATE = 19200, CLOCK_FREQ = 12000000)
     /* State variables */
     reg[7:0] state=8'b0;
     reg[7:0] bits_recv=8'b0;
-    reg ready=1'b0;
 
     reg rst = 0;;
     reg baud_clock;
@@ -118,7 +117,7 @@ module uart_rx_8n1 #(parameter BAUD_RATE = 19200, CLOCK_FREQ = 12000000)
         .clk (clk),
         .rst (rst),
         .enable (enable_baud),
-        .baud_clock (baud_clock),
+        .baud_clock (baud_clock)
     );
     
 
