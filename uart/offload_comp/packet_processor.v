@@ -31,26 +31,31 @@ module packet_sender #(parameter PACKET_SIZE = 16'd2)
 
     reg [15:0] octet = 16'd0;
 
+    
     always @ (posedge clk) begin
 
 
         if (enable_latch == 1) begin //begin sending
-            if(tx_busy == 0) begin//tx line is free, send a byte
-    
-                if(octet != PACKET_SIZE+1) begin
-                    txbyte <= packet[octet*8+:8];
-                    $write("%c",packet[octet*8+:8]);
+            /*
+            checking tx_en==1'b0 is necessary to prevent sending every other byte only.
+            this way we allow an extra clock cycle for the busy flag in the tx module 
+            to turn on after setting the enable flag for the tx module. 
+            */
+            if(tx_busy == 1'b0 && tx_en == 1'b0) begin//tx line is free, send a byte
+                if(octet != PACKET_SIZE) begin
+                    //$display("packet_sender: %c",packet[octet*8+:8]);
+                    txbyte <= packet[(PACKET_SIZE-octet-1)*8+:8];
                     octet <= octet + 16'd1;
-                    tx_en <= 1;
+                    tx_en <= 1'b1;
                 end else begin//done sending
                     enable_latch <= 0;
                     tx_en <= 0;
                     busy <= 0;
                     octet <= 16'd0;
-                    $display(" done!");
+                    $display("packet_sender: sent!");
                 end
             end else begin //tx line is busy, wait
-                tx_en <= 0;
+                tx_en <= 1'b0;
             end
         end
 

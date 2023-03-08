@@ -6,10 +6,10 @@ module top (
     );
 
 
-    reg [8*9-1:0] data = "123456789";
+    reg [8*15-1:0] data = "this is a test ";
     reg enb = 1'b0;
     reg busy;
-    packet_sender #( .PACKET_SIZE(16'd9)) transmitter (
+    packet_sender #( .PACKET_SIZE(16'd15)) transmitter (
         .clk(hwclk),
         .packet(data),
         .enable(enb),
@@ -30,6 +30,5 @@ module top (
             enb <= 0;
         end
     end
-
 
 endmodule
