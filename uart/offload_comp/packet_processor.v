@@ -21,7 +21,7 @@ module packet_sender #(parameter PACKET_SIZE = 16'd2)
     reg enable_latch = 0;
     reg tx_busy;
 
-    uart_tx_8n1 transmitter (
+    uart_tx_8n1 uart_transmitter (
         .clk (clk),
         .data (txbyte),
         .enable (tx_en),
@@ -66,5 +66,61 @@ module packet_sender #(parameter PACKET_SIZE = 16'd2)
         end
 
     end
+
+endmodule
+
+
+module packet_reciever #(parameter PACKET_SIZE = 16'd2)
+    (
+        input wire clk,
+        output reg [PACKET_SIZE*8-1:0] packet,
+        input wire enable,
+        input wire rxd,
+        output reg ready = 1'b0
+    );
+
+    reg [7:0] rxbyte;
+    reg rx_ready;
+
+    uart_rx_8n1 uart_reciever (
+        .clk (clk),
+        .data (rxbyte),
+        .enable (1'b1),
+        .ready (rx_ready),
+        .rxd (rxd)
+    );
+
+    reg [15:0] octet = 16'd0;
+
+    always @(posedge clk) begin
+
+        if(rx_ready == 1'b1) begin
+            if(octet != PACKET_SIZE-1) begin
+                ready <= 1'b0;
+                packet[(PACKET_SIZE - octet - 1)*8+:8] <= rxbyte;
+                octet <= octet + 16'd1;
+            end else begin //recieve last byte of packet
+                packet[0+:8] <= rxbyte;
+                ready <= 1'b1;
+                octet <= 16'd0;
+            end
+        end
+        
+        if(ready == 1'b1) begin
+            ready <= 1'b0;
+        end
+
+
+
+    end
+
+    always @(posedge ready) begin
+        $display("packet_reciever: recieved!");
+    end
+
+
+
+
+
 
 endmodule
